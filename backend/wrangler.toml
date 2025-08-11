@@ -1,0 +1,20 @@
+name = "mastra-fortune-telling-backend"
+main = "src/index.ts"
+compatibility_date = "2024-08-11"
+compatibility_flags = [ "nodejs_compat" ]
+
+[env.production]
+name = "mastra-fortune-telling-backend"
+
+[env.staging]
+name = "mastra-fortune-telling-backend-staging"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+
+# KV namespaces (for storing user data and readings)
+[[kv_namespaces]]
+binding = "FORTUNE_KV"
+preview_id = "preview_fortune_kv"
+id = "production_fortune_kv"
