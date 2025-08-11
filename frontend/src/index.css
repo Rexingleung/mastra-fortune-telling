@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-slate-100;
+    font-family: 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS', sans-serif;
+  }
+}
+
+@layer components {
+  .mystic-card {
+    @apply bg-gradient-to-br from-purple-900/50 to-indigo-900/50 backdrop-blur-md border border-purple-500/30 rounded-xl;
+  }
+  
+  .fortune-button {
+    @apply bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25;
+  }
+  
+  .tarot-card {
+    @apply w-24 h-36 bg-gradient-to-b from-yellow-400 via-orange-500 to-red-600 rounded-lg shadow-lg transform transition-all duration-500 hover:scale-110 hover:rotate-3 cursor-pointer;
+  }
+}
+
+/* 自定义滚动条 */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #8B5CF6 transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #8B5CF6;
+  border-radius: 3px;
+}
+
+/* 星空背景动画 */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.star {
+  animation: twinkle 2s infinite;
+}
+
+/* 神秘光晕效果 */
+.mystic-glow {
+  box-shadow: 
+    0 0 20px rgba(139, 92, 246, 0.3),
+    0 0 40px rgba(139, 92, 246, 0.2),
+    0 0 60px rgba(139, 92, 246, 0.1);
+}
