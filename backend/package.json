@@ -4,19 +4,19 @@
   "description": "Cloudflare Workers backend for fortune telling app",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
     "build": "tsc",
-    "test": "vitest"
+    "test": "vitest",
+    "update-wrangler": "npm install --save-dev wrangler@latest"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20240806.0",
-    "@mastra/core": "^0.1.0",
     "hono": "^4.5.0"
   },
   "devDependencies": {
     "typescript": "^5.5.3",
-    "wrangler": "^3.67.1",
+    "wrangler": "^3.78.12",
     "vitest": "^1.6.0"
   }
 }
