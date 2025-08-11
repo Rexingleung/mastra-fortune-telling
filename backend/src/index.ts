@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { tarotHandler } from './handlers/tarot';
 import { fengshuiHandler } from './handlers/fengshui';
 import { zodiacHandler } from './handlers/zodiac';
-import { namingHandler } from './handlers/naming';
+// import { namingHandler } from './handlers/naming';
 import { guziHandler } from './handlers/guzi';
 import { chatHandler } from './handlers/chat';
 
@@ -35,7 +35,7 @@ app.get('/', (c) => {
 app.route('/api/tarot', tarotHandler);
 app.route('/api/fengshui', fengshuiHandler);
 app.route('/api/zodiac', zodiacHandler);
-app.route('/api/naming', namingHandler);
+// app.route('/api/naming', namingHandler);
 app.route('/api/guzi', guziHandler);
 app.route('/api/chat', chatHandler);
 
