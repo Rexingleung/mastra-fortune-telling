@@ -1,20 +1,30 @@
-name = "mastra-fortune-telling-backend"
+name = "fortune-telling-api"
 main = "src/index.ts"
-compatibility_date = "2024-08-11"
-compatibility_flags = [ "nodejs_compat" ]
+compatibility_date = "2024-05-01"
 
-[env.production]
-name = "mastra-fortune-telling-backend"
+[build]
+command = "npm run build"
 
-[env.staging]
-name = "mastra-fortune-telling-backend-staging"
-
-# Environment variables
-[vars]
+[env.development.vars]
 ENVIRONMENT = "development"
 
-# KV namespaces (for storing user data and readings)
-[[kv_namespaces]]
+[env.production.vars]
+ENVIRONMENT = "production"
+# DEEPSEEK_API_KEY = "your-deepseek-api-key-here"
+
+# KV namespaces for production
+[[env.production.kv_namespaces]]
 binding = "FORTUNE_KV"
-preview_id = "preview_fortune_kv"
-id = "production_fortune_kv"
+# id = "your-kv-namespace-id-here"
+
+# KV namespaces for development
+[[env.development.kv_namespaces]]
+binding = "FORTUNE_KV"
+# id = "your-dev-kv-namespace-id-here"
+
+# Rate limiting (requests per minute)
+[env.production.vars]
+RATE_LIMIT = "60"
+
+[env.development.vars]
+RATE_LIMIT = "120"

@@ -1,28 +1,45 @@
 {
-  "name": "mastra-fortune-telling-backend",
-  "version": "1.0.0",
-  "description": "Cloudflare Workers backend for fortune telling app",
+  "name": "fortune-telling-backend",
+  "version": "2.0.0",
+  "description": "天机阁 AI 智能占卜后端服务 - Cloudflare Workers",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "npx wrangler dev",
-    "dev:mock": "node mock-server.js",
-    "deploy": "npx wrangler deploy",
-    "build": "tsc",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "wrangler deploy --dry-run",
     "test": "vitest",
-    "update-wrangler": "npm install --save-dev wrangler@latest",
-    "install:mock": "npm install express cors"
+    "mock": "node mock-server.js",
+    "type-check": "tsc --noEmit"
   },
+  "keywords": [
+    "fortune-telling",
+    "divination",
+    "astrology",
+    "tarot",
+    "feng-shui",
+    "numerology",
+    "palmistry",
+    "i-ching",
+    "ba-zi",
+    "ai",
+    "cloudflare-workers",
+    "hono"
+  ],
+  "author": "Rex Leung <rexingleung@126.com>",
+  "license": "MIT",
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20240806.0",
-    "hono": "^4.5.0"
+    "hono": "^4.0.0",
+    "@ai-sdk/deepseek": "^0.2.15",
+    "ai": "^3.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.3",
-    "vitest": "^1.6.0",
-    "wrangler": "^4.11.0"
+    "@cloudflare/workers-types": "^4.20240605.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.57.0",
+    "vitest": "^1.0.0"
   },
-  "optionalDependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2"
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
