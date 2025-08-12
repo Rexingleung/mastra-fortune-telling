@@ -68,12 +68,17 @@ export default function ChatPage() {
           result.isFinished = true;
           result.finishReason = doneData.finishReason;
           result.usage = doneData.usage;
+        } else {
+          const textPart = line;
+          const cleanText = textPart.replace(/^"(.*)"$/, '$1');
+          result.textContent += cleanText;
         }
       } catch (error) {
         console.warn('解析SSE数据行时出错:', line, error);
       }
     }
-
+    console.log(result);
+    
     return result;
   };
 
@@ -111,6 +116,8 @@ export default function ChatPage() {
       response.processDataStream({
         onTextPart: (rawData: string) => {
           try {
+            console.log(rawData,' rawData');
+            
             const parsedData = parseSSEData(rawData);
             
             if (parsedData.textContent && currentAssistantIdRef.current) {
@@ -153,7 +160,9 @@ export default function ChatPage() {
           setIsLoading(false);
           setIsTyping(false);
         },
-        onComplete: () => {
+        onFinishMessagePart: () => {
+          console.log(44444);
+          
           setIsLoading(false);
           setIsTyping(false);
           currentAssistantIdRef.current = null;
