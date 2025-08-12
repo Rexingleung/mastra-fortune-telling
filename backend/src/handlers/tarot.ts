@@ -1,99 +1,81 @@
 import { Hono } from 'hono';
+import { FortuneAgent } from '../services/fortuneAgent';
 
-type Bindings = {
-  FORTUNE_KV: KVNamespace;
-};
+const tarotHandler = new Hono<{ Bindings: { DEEPSEEK_API_KEY: string } }>();
 
-const tarot = new Hono<{ Bindings: Bindings }>();
-
-// 塔罗牌数据
-const TAROT_CARDS = [
-  { id: 0, name: 'The Fool', nameCn: '愚者', meaning: '新开始、冒险、天真' },
-  { id: 1, name: 'The Magician', nameCn: '魔术师', meaning: '意志力、技能、集中' },
-  { id: 2, name: 'The High Priestess', nameCn: '女祭司', meaning: '直觉、潜意识、神秘' },
-  // ... 更多塔罗牌数据
-];
-
-// 抽牌接口
-tarot.post('/draw', async (c) => {
+tarotHandler.post('/reading', async (c) => {
   try {
-    const { spreadType = 'three', question } = await c.req.json();
-    
-    const cardCount = spreadType === 'single' ? 1 : spreadType === 'three' ? 3 : 10;
-    
-    // 随机抽牌
-    const shuffled = [...TAROT_CARDS].sort(() => Math.random() - 0.5);
-    const drawnCards = shuffled.slice(0, cardCount).map(card => ({
-      ...card,
-      isReversed: Math.random() > 0.7,
-      position: spreadType === 'three' ? 
-        ['过去', '现在', '未来'][shuffled.indexOf(card)] : 
-        `位置${shuffled.indexOf(card) + 1}`
-    }));
+    const { spreadType, question } = await c.req.json();
 
-    // 存储抽牌记录
-    const readingId = `reading-${Date.now()}`;
-    await c.env.FORTUNE_KV.put(
-      readingId,
-      JSON.stringify({
-        cards: drawnCards,
-        question,
-        timestamp: new Date().toISOString(),
-        type: 'tarot'
-      }),
-      { expirationTtl: 7 * 24 * 60 * 60 } // 7天过期
-    );
+    if (!question || !spreadType) {
+      return c.json({ error: '问题和牌阵类型不能为空' }, 400);
+    }
 
-    return c.json({
-      readingId,
-      cards: drawnCards,
-      spreadType
+    const fortuneAgent = new FortuneAgent({
+      apiKey: c.env.DEEPSEEK_API_KEY
     });
-    
+
+    const result = await fortuneAgent.tarotReading({
+      spreadType,
+      question
+    });
+
+    return c.json(result);
   } catch (error) {
-    console.error('Tarot draw error:', error);
-    return c.json({ error: '抽牌失败，请重试' }, 500);
+    console.error('塔罗占卜错误:', error);
+    return c.json({ error: '塔罗占卜服务暂时不可用' }, 500);
   }
 });
 
-// 解读接口
-tarot.post('/interpret', async (c) => {
-  try {
-    const { readingId, question } = await c.req.json();
-    
-    if (!readingId) {
-      return c.json({ error: '缺少解读ID' }, 400);
-    }
-
-    // 获取抽牌记录
-    const readingData = await c.env.FORTUNE_KV.get(readingId);
-    if (!readingData) {
-      return c.json({ error: '解读记录不存在或已过期' }, 404);
-    }
-
-    const reading = JSON.parse(readingData);
-    
-    // 这里应该调用AI进行解读
-    const interpretation = await generateTarotInterpretation(reading.cards, question);
-    
-    return c.json({
-      interpretation,
-      cards: reading.cards,
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('Tarot interpret error:', error);
-    return c.json({ error: '解读失败，请重试' }, 500);
-  }
+// 获取牌阵类型列表
+tarotHandler.get('/spreads', (c) => {
+  return c.json({
+    success: true,
+    data: [
+      { id: 'single', name: '单张牌', description: '简单直接的指导' },
+      { id: 'three-card', name: '三张牌', description: '过去、现在、未来' },
+      { id: 'celtic-cross', name: '凯尔特十字', description: '全面深入的分析' },
+      { id: 'relationship', name: '感情牌阵', description: '专注于人际关系' },
+      { id: 'career', name: '事业牌阵', description: '职业和财运指导' },
+      { id: 'yes-no', name: '是否问题', description: '简单的是非判断' }
+    ]
+  });
 });
 
-// AI塔罗牌解读函数
-async function generateTarotInterpretation(cards: any[], question?: string): Promise<string> {
-  // 这里应该集成Mastra AI Agent或其他AI服务
-  const cardNames = cards.map(card => `${card.nameCn}${card.isReversed ? '(逆位)' : ''}`).join('、');
-  
-  return `🔮 塔罗解读\n\n您抽到的牌是：${cardNames}\n\n根据塔罗牌的指引，${question ? `关于"${question}"的问题，` : ''}您当前的状况显示...\n\n[这里应该是AI生成的详细解读内容]\n\n💫 建议：相信自己的直觉，勇敢面对挑战，未来充满可能性。`;
-}
+// 获取塔罗牌含义
+tarotHandler.get('/cards', (c) => {
+  const majorArcana = [
+    { name: '愚人', number: 0, upright: '新开始、天真、自发', reversed: '鲁莽、愚昧、冒险' },
+    { name: '魔术师', number: 1, upright: '意志力、专注、创造', reversed: '操纵、欺骗、缺乏方向' },
+    { name: '女祭司', number: 2, upright: '直觉、神秘、内在智慧', reversed: '缺乏直觉、秘密、沉默' },
+    { name: '皇后', number: 3, upright: '母性、丰饶、自然', reversed: '依赖、空虚、过度保护' },
+    { name: '皇帝', number: 4, upright: '权威、结构、控制', reversed: '专制、刚愎、失控' },
+    { name: '教皇', number: 5, upright: '传统、宗教、指导', reversed: '反叛、新方法、无知' },
+    { name: '恋人', number: 6, upright: '爱情、和谐、选择', reversed: '失和、错误选择、不忠' },
+    { name: '战车', number: 7, upright: '胜利、决心、意志力', reversed: '失败、缺乏方向、失控' },
+    { name: '力量', number: 8, upright: '内在力量、勇气、耐心', reversed: '自我怀疑、缺乏信心、滥用力量' },
+    { name: '隐者', number: 9, upright: '内省、寻找、指导', reversed: '孤立、迷失、拒绝帮助' },
+    { name: '命运之轮', number: 10, upright: '命运、变化、机遇', reversed: '厄运、失控、抗拒改变' },
+    { name: '正义', number: 11, upright: '平衡、公平、真相', reversed: '不公、失衡、逃避责任' },
+    { name: '倒吊人', number: 12, upright: '牺牲、等待、新视角', reversed: '无意义牺牲、延迟、抗拒' },
+    { name: '死神', number: 13, upright: '结束、转变、重生', reversed: '抗拒改变、停滞、腐朽' },
+    { name: '节制', number: 14, upright: '平衡、耐心、融合', reversed: '不平衡、过度、缺乏远见' },
+    { name: '恶魔', number: 15, upright: '诱惑、束缚、物欲', reversed: '解放、觉醒、克服诱惑' },
+    { name: '塔', number: 16, upright: '突然变化、混乱、启示', reversed: '逃避灾难、恐惧改变、内部混乱' },
+    { name: '星星', number: 17, upright: '希望、灵感、宁静', reversed: '绝望、缺乏信心、断绝' },
+    { name: '月亮', number: 18, upright: '幻觉、直觉、潜意识', reversed: '混乱、恐惧、误解' },
+    { name: '太阳', number: 19, upright: '快乐、成功、活力', reversed: '暂时挫折、缺乏成功、消极' },
+    { name: '审判', number: 20, upright: '重生、觉醒、宽恕', reversed: '缺乏反省、严厉判断、自我怀疑' },
+    { name: '世界', number: 21, upright: '完成、成就、旅行', reversed: '缺乏完成、延迟、停滞' }
+  ];
 
-export { tarot as tarotHandler };
+  return c.json({
+    success: true,
+    data: {
+      majorArcana,
+      totalCards: majorArcana.length
+    }
+  });
+});
+
+export { tarotHandler };
