@@ -23,8 +23,6 @@ binding = "FORTUNE_KV"
 # id = "your-dev-kv-namespace-id-here"
 
 # Rate limiting (requests per minute)
-[env.production.vars]
+[vars]
 RATE_LIMIT = "60"
 
-[env.development.vars]
-RATE_LIMIT = "120"
