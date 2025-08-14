@@ -4,7 +4,7 @@ export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
-  timestamp?: string;
+  timestamp?: any;
 }
 
 // 塔罗牌相关类型
@@ -20,7 +20,7 @@ export interface TarotReading {
   spreadType: string;
   cards: TarotCard[];
   interpretation: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 export interface TarotSpread {
@@ -47,7 +47,7 @@ export interface AstrologicalReading {
   westernAstrology: ZodiacSign;
   chineseAstrology: ChineseZodiac;
   analysis: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 // 风水相关类型
@@ -58,7 +58,7 @@ export interface FengShuiAnalysis {
     description: string;
   };
   analysis: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 export interface FengShuiDirection {
@@ -84,7 +84,7 @@ export interface NumerologyReading {
   };
   numbers: NumerologyNumbers;
   interpretation: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 // 手相分析类型
@@ -94,7 +94,7 @@ export interface PalmistryReading {
     description: string;
   };
   analysis: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 // 八字分析类型
@@ -114,7 +114,7 @@ export interface BaZiReading {
     elements: string[];
   };
   analysis: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 // 易经占卜类型
@@ -128,7 +128,7 @@ export interface IChingReading {
   question: string;
   hexagram: IChingHexagram;
   interpretation: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 // 智能起名类型
@@ -154,15 +154,15 @@ export interface NamingReading {
     elements: string[];
   };
   nameRecommendations: string;
-  timestamp: string;
+  timestamp: any;
 }
 
-// 聊天相关类型
+// 聊天相关类型 - 修复timestamp类型
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  timestamp: string;
+  timestamp: any; // 统一使用ISO字符串格式
 }
 
 export interface ChatSuggestion {
@@ -173,7 +173,7 @@ export interface ChatSuggestion {
 
 export interface FortuneChat {
   message: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 // 占卜师信息类型
@@ -191,7 +191,7 @@ export interface MasterInfo {
 export interface DailyFortune {
   message: string;
   date: string;
-  timestamp: string;
+  timestamp: any;
 }
 
 // 幸运元素类型
@@ -233,5 +233,5 @@ export interface HistoryRecord {
   type: 'tarot' | 'astrology' | 'fengshui' | 'numerology' | 'palmistry' | 'bazi' | 'iching' | 'naming' | 'chat';
   title: string;
   data: any;
-  timestamp: string;
+  timestamp: any;
 }

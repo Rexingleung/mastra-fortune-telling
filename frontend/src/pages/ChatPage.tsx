@@ -1,8 +1,105 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Sparkles, MessageCircle, Wand2, Moon, Stars } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeRaw from 'rehype-raw';
+import type { Components } from 'react-markdown';
 import { mastraClient } from '../lib/mastra';
 import { ChatMessage } from '../types';
+
+// Markdown组件的自定义样式
+const MarkdownComponents: Components = {
+  // 自定义段落样式
+  p: ({ children }) => (
+    <p className="mb-2 leading-relaxed last:mb-0">{children}</p>
+  ),
+  // 自定义标题样式
+  h1: ({ children }) => (
+    <h1 className="mb-2 text-lg font-bold text-purple-200">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-2 text-base font-bold text-purple-200">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-1 text-sm font-bold text-purple-200">{children}</h3>
+  ),
+  // 自定义列表样式
+  ul: ({ children }) => (
+    <ul className="mb-2 ml-4 space-y-1 list-disc list-outside">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-2 ml-4 space-y-1 list-decimal list-outside">{children}</ol>
+  ),
+  li: ({ children }) => (
+    <li className="leading-relaxed">{children}</li>
+  ),
+  // 自定义强调样式
+  strong: ({ children }) => (
+    <strong className="font-bold text-purple-200">{children}</strong>
+  ),
+  em: ({ children }) => (
+    <em className="italic text-purple-300">{children}</em>
+  ),
+  // 自定义代码样式
+  code: ({ inline, children, ...props }) => 
+    inline ? (
+      <code className="px-1 py-0.5 mx-1 text-xs bg-purple-800/50 rounded text-purple-200 font-mono" {...props}>
+        {children}
+      </code>
+    ) : (
+      <code className="block overflow-x-auto p-2 my-2 font-mono text-xs rounded border bg-black/30 border-purple-500/30" {...props}>
+        {children}
+      </code>
+    ),
+  // 自定义代码块样式
+  pre: ({ children }) => (
+    <pre className="overflow-x-auto p-3 my-2 rounded border bg-black/30 border-purple-500/30">
+      {children}
+    </pre>
+  ),
+  // 自定义引用样式
+  blockquote: ({ children }) => (
+    <blockquote className="pl-4 my-2 italic text-purple-300 border-l-4 border-purple-500/50">
+      {children}
+    </blockquote>
+  ),
+  // 自定义链接样式
+  a: ({ href, children }) => (
+    <a 
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-purple-300 underline transition-colors hover:text-purple-200"
+    >
+      {children}
+    </a>
+  ),
+  // 自定义表格样式
+  table: ({ children }) => (
+    <div className="overflow-x-auto my-2">
+      <table className="min-w-full rounded border border-purple-500/30">
+        {children}
+      </table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th className="px-2 py-1 text-xs font-bold text-purple-200 border bg-purple-800/30 border-purple-500/30">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="px-2 py-1 text-xs border border-purple-500/30">
+      {children}
+    </td>
+  ),
+  // 自定义分割线样式
+  hr: () => (
+    <hr className="my-3 border-purple-500/30" />
+  ),
+};
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -25,62 +122,108 @@ export default function ChatPage() {
     if (isTyping) {
       const timer = setTimeout(() => {
         setIsTyping(false);
-      }, 1000);
+      }, 2000); // 延长一点时间
       return () => clearTimeout(timer);
     }
   }, [isTyping]);
 
-  // SSE数据解析函数
-  const parseSSEData = (data: string) => {
-    const lines = data.split('\
-');
-    const result = {
-      messageId: null as string | null,
-      textContent: '',
-      isFinished: false,
-      finishReason: null as string | null,
-      usage: null as any
-    };
-
+  // 针对你的SSE格式优化的数据提取函数
+  const extractTextFromSSE = useCallback((rawData: string): string => {
+    console.log('=== Processing your SSE format ===');
+    console.log('Raw data:', JSON.stringify(rawData));
+    
+    let extractedText = '';
+    
+    // 按行分割数据
+    const lines = rawData.split('\n').filter(line => line.trim());
+    
     for (const line of lines) {
-      if (line.trim() === '') continue;
+      console.log('Processing line:', line);
       
       try {
         if (line.startsWith('f:')) {
+          // 元数据行: f:{"messageId":"msg-xxx"}
           const metaData = JSON.parse(line.substring(2));
-          if (metaData.messageId) {
-            result.messageId = metaData.messageId;
-          }
+          console.log('Message metadata:', metaData);
+          // 这里可以保存messageId如果需要的话
         }
         else if (line.startsWith('0:')) {
-          const textPart = line.substring(2);
-          const cleanText = textPart.replace(/^"(.*)"$/, '$1');
-          result.textContent += cleanText;
+          // 文本内容行: 0:"Hello"
+          const textPart = line.substring(2); // 移除 "0:"
+          
+          // 移除外层引号，如果存在的话
+          let cleanText = textPart;
+          if (cleanText.startsWith('"') && cleanText.endsWith('"')) {
+            cleanText = cleanText.slice(1, -1);
+          }
+          
+          // 处理转义字符
+          cleanText = cleanText
+            .replace(/\\n/g, '\n')      // 换行符
+            .replace(/\\t/g, '\t')      // 制表符
+            .replace(/\\r/g, '\r')      // 回车符
+            .replace(/\\"/g, '"')       // 引号
+            .replace(/\\\\/g, '\\');    // 反斜杠
+          
+          console.log('Extracted text chunk:', JSON.stringify(cleanText));
+          extractedText += cleanText;
         }
         else if (line.startsWith('e:')) {
+          // 结束事件: e:{"finishReason":"stop","usage":{...}}
           const endData = JSON.parse(line.substring(2));
-          result.isFinished = true;
-          result.finishReason = endData.finishReason;
-          result.usage = endData.usage;
+          console.log('End event:', endData);
+          // 这里可以处理结束事件，如保存usage信息
         }
         else if (line.startsWith('d:')) {
+          // 完成事件: d:{"finishReason":"stop","usage":{...}}
           const doneData = JSON.parse(line.substring(2));
-          result.isFinished = true;
-          result.finishReason = doneData.finishReason;
-          result.usage = doneData.usage;
-        } else {
-          const textPart = line;
-          const cleanText = textPart.replace(/^"(.*)"$/, '$1');
-          result.textContent += cleanText;
+          console.log('Done event:', doneData);
+          // 标记流完成
+        }
+        else {
+          // 其他格式的备用处理
+          console.log('Unknown line format, trying as plain text:', line);
+          if (line.trim() && !line.includes('{') && !line.includes('}')) {
+            extractedText += line.trim();
+          }
         }
       } catch (error) {
-        console.warn('解析SSE数据行时出错:', line, error);
+        console.warn('Error parsing line:', line, error);
+        
+        // 备用处理：如果是简单的文本，直接使用
+        if (line.trim() && !line.includes(':') && !line.includes('{')) {
+          extractedText += line.trim();
+        }
       }
     }
-    console.log(result);
     
-    return result;
-  };
+    console.log('Final extracted text:', JSON.stringify(extractedText));
+    console.log('Text length:', extractedText.length);
+    console.log('=== End SSE Processing ===');
+    
+    return extractedText;
+  }, []);
+
+  // 更新消息内容的回调函数
+  const updateAssistantMessage = useCallback((newText: string) => {
+    if (!currentAssistantIdRef.current || !newText) return;
+    
+    console.log('Updating message with text:', newText);
+    
+    setMessages(prevMessages => {
+      return prevMessages.map(message => {
+        if (message.id === currentAssistantIdRef.current) {
+          const updatedContent = message.content + newText;
+          console.log('Updated content:', updatedContent);
+          return {
+            ...message,
+            content: updatedContent
+          };
+        }
+        return message;
+      });
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +233,7 @@ export default function ChatPage() {
       id: Date.now().toString(),
       role: 'user',
       content: inputValue,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -98,88 +241,142 @@ export default function ChatPage() {
     setIsLoading(true);
     setIsTyping(true);
 
+    // 使用局部变量保存assistantId
+    const assistantId = `assistant-${Date.now()}`;
+    currentAssistantIdRef.current = assistantId;
+    
+    console.log('Created assistant ID:', assistantId);
+
     try {
       const agent = mastraClient.getAgent('fortuneTellingAgent');
       const response = await agent.stream({
         messages: [{ role: 'user', content: inputValue }]
       });
-
-      const assistantId = `assistant-${Date.now()}`;
-      currentAssistantIdRef.current = assistantId;
+      
+      // 创建初始的助手消息
       setMessages(prev => [...prev, {
         id: assistantId,
         role: 'assistant',
         content: '',
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       }]);
+
+      console.log('Starting SSE stream processing for ID:', assistantId);
+
+      // 直接更新消息的函数
+      const appendToMessage = (textChunk: string) => {
+        if (!textChunk) return;
+        
+        console.log('Appending text chunk:', JSON.stringify(textChunk));
+        
+        setMessages(prevMessages => {
+          return prevMessages.map(message => {
+            if (message.id === assistantId) {
+              const newContent = message.content + textChunk;
+              console.log('New message content length:', newContent.length);
+              return {
+                ...message,
+                content: newContent
+              };
+            }
+            return message;
+          });
+        });
+        
+        // 保持typing状态，表示正在接收数据
+        setIsTyping(true);
+      };
 
       response.processDataStream({
         onTextPart: (rawData: string) => {
+          console.log('=== Received SSE chunk ===');
+          console.log('Raw data:', rawData);
+          console.log('currentAssistantIdRef.current:', currentAssistantIdRef.current);
+          console.log('Local assistantId:', assistantId);
+          
           try {
-            console.log(rawData,' rawData');
+            // 使用改进的SSE数据提取函数
+            const extractedText = extractTextFromSSE(rawData);
             
-            const parsedData = parseSSEData(rawData);
-            
-            if (parsedData.textContent && currentAssistantIdRef.current) {
-              setMessages(prev => prev.map(m => m.id === currentAssistantIdRef.current
-                ? { ...m, content: m.content + parsedData.textContent }
-                : m
-              ));
-            }
-            
-            if (parsedData.isFinished) {
-              setIsLoading(false);
-              setIsTyping(false);
-            }
-            
-          } catch (error) {
-            console.error('处理SSE数据时出错:', error);
-            if (currentAssistantIdRef.current && typeof rawData === 'string') {
-              const lines = rawData.split('\
-');
-              let textContent = '';
-              
-              for (const line of lines) {
-                if (line.startsWith('0:')) {
-                  const textPart = line.substring(2).replace(/^"(.*)"$/, '$1');
-                  textContent += textPart;
-                }
+            if (extractedText) {
+              console.log('Successfully extracted text:', extractedText);
+              appendToMessage(extractedText);
+            } else {
+              console.log('No text extracted from this chunk');
+              // 对于某些SSE格式，可能需要直接使用原始数据
+              if (typeof rawData === 'string' && rawData.trim() && 
+                  !rawData.includes('data:') && 
+                  !rawData.includes('[DONE]') && 
+                  !rawData.startsWith('{') && 
+                  !rawData.endsWith('}')) {
+                console.log('Using raw data as fallback text');
+                appendToMessage(rawData.trim());
               }
+            }
+          } catch (error) {
+            console.error('Error processing SSE chunk:', error);
+            
+            // 最终fallback：如果所有解析都失败，尝试直接使用原始数据
+            if (typeof rawData === 'string' && rawData.trim()) {
+              console.log('Emergency fallback: using raw data');
+              // 清理一下明显的非文本内容
+              const cleanData = rawData
+                .replace(/^data:\s*/, '')
+                .replace(/\[DONE\]/, '')
+                .trim();
               
-              if (textContent) {
-                setMessages(prev => prev.map(m => m.id === currentAssistantIdRef.current
-                  ? { ...m, content: m.content + textContent }
-                  : m
-                ));
+              if (cleanData && cleanData.length > 0) {
+                appendToMessage(cleanData);
               }
             }
           }
-        },
-        onError: (error: any) => {
-          console.error('数据流处理错误:', error);
-          setIsLoading(false);
-          setIsTyping(false);
-        },
-        onFinishMessagePart: () => {
-          console.log(44444);
           
+          console.log('=== End SSE chunk processing ===');
+        },
+        
+        onError: (error: any) => {
+          console.error('SSE stream error:', error);
           setIsLoading(false);
           setIsTyping(false);
           currentAssistantIdRef.current = null;
+          
+          // 添加错误消息
+          const errorMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: '抱歉，在处理您的请求时遇到了问题，请稍后再试。',
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+        },
+        
+        onFinishMessagePart: () => {
+          console.log('SSE stream finished');
+          setIsLoading(false);
+          setIsTyping(false);
+          
+          // 延迟清空ref，确保所有数据都处理完毕
+          setTimeout(() => {
+            currentAssistantIdRef.current = null;
+            console.log('Cleared assistant ID ref');
+          }, 100);
         }
       });
 
     } catch (error) {
-      console.error('请求失败:', error);
+      console.error('Request failed:', error);
+      
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: '抱歉，算命师暂时无法连接到神秘力量，请稍后再试...',
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
       };
+      
       setMessages(prev => [...prev, errorMessage]);
       setIsLoading(false);
       setIsTyping(false);
+      currentAssistantIdRef.current = null;
     }
   };
 
@@ -248,7 +445,6 @@ export default function ChatPage() {
             与智慧的AI算命师交流，探索命运的奥秘
           </p>
           <div className="flex justify-center items-center space-x-2 text-sm text-purple-300">
-            {/* <Crystal size={16} /> */}
             <span>神秘力量已就绪</span>
             <Moon size={16} />
           </div>
@@ -352,15 +548,32 @@ export default function ChatPage() {
                           </div>
                         )}
                         
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                          {message.content}
+                        {/* 使用ReactMarkdown渲染消息内容 */}
+                        <div className="text-sm leading-relaxed">
+                          {message.role === 'assistant' ? (
+                            <div className="relative">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm, remarkBreaks]}
+                                rehypePlugins={[rehypeHighlight, rehypeRaw]}
+                                components={MarkdownComponents}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                              {/* 简单的typing指示器 */}
+                              {isTyping && message.id === currentAssistantIdRef.current && (
+                                <span className="inline-block ml-1 w-2 h-4 bg-purple-400 animate-pulse"></span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="whitespace-pre-wrap">{message.content}</div>
+                          )}
                         </div>
                         
                         <div className={`text-xs mt-2 opacity-70 flex items-center justify-between ${
                           message.role === 'user' ? 'text-purple-100' : 'text-purple-300'
                         }`}>
                           <span>
-                            {message.timestamp.toLocaleTimeString('zh-CN', {
+                            {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
                               hour: '2-digit',
                               minute: '2-digit'
                             })}
@@ -460,7 +673,6 @@ export default function ChatPage() {
                     <span>按 Enter 发送</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    {/* <Crystal size={12} /> */}
                     <span>AI智能解读</span>
                   </div>
                 </div>
